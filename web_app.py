@@ -13,121 +13,278 @@ last_update = 0
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
     <title>Reddit Pet Bot</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            padding: 10px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
         }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
         .header {
-            background: #ff4500;
-            color: white;
-            padding: 15px;
-            text-align: center;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        .post {
             background: white;
-            margin: 10px 0;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .post-title {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        .post-info {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 10px;
-        }
-        .comment-btn {
-            background: #ff4500;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 5px;
-            font-size: 16px;
-            width: 100%;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .comment-btn:active {
-            background: #cc3700;
-        }
-        .refresh-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 5px;
-            width: 100%;
+            padding: 25px 20px;
+            text-align: center;
+            border-radius: 16px;
             margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: #666;
             font-size: 14px;
         }
+        
+        .stats {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stats-text {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .stats-count {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            width: 100%;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .refresh-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .post {
+            background: white;
+            margin-bottom: 16px;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .post:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .post-title {
+            font-size: 17px;
+            margin-bottom: 12px;
+            color: #333;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        
+        .post-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .post-info span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .comment-btn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(238, 90, 111, 0.3);
+        }
+        
+        .comment-btn:active {
+            transform: scale(0.98);
+        }
+        
         .no-posts {
+            background: white;
+            text-align: center;
+            padding: 60px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .no-posts-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .no-posts h3 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .no-posts p {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .loading {
             text-align: center;
             padding: 40px;
-            color: #666;
+            color: white;
+            font-size: 18px;
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .post-title {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🐾 Reddit Pet Bot</h1>
-        <p>Türkçe Evcil Hayvan Gönderileri</p>
-    </div>
-    
-    <button class="refresh-btn" onclick="location.reload()">🔄 Yenile</button>
-    
-    <div id="posts">
+    <div class="container">
+        <div class="header">
+            <h1>🐾 Reddit Pet Bot</h1>
+            <p>Türkçe Evcil Hayvan Gönderileri</p>
+        </div>
+        
         {% if posts %}
-            {% for post in posts %}
-            <div class="post">
-                <div class="post-title">{{ post.title }}</div>
-                <div class="post-info">
-                    r/{{ post.subreddit }} • ⬆️ {{ post.score }} upvote
-                </div>
-                <button class="comment-btn" onclick="commentPost('{{ post.url }}')">
-                    💬 Yorum Yap
-                </button>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="no-posts">
-                <p>Henüz gönderi bulunamadı.</p>
-                <p>Biraz bekleyip yenileyin.</p>
-            </div>
+        <div class="stats">
+            <span class="stats-text">📊 Toplam Gönderi</span>
+            <span class="stats-count">{{ posts|length }}</span>
+        </div>
         {% endif %}
+        
+        <button class="refresh-btn" onclick="location.reload()">
+            🔄 Yenile
+        </button>
+        
+        <div id="posts">
+            {% if posts %}
+                {% for post in posts %}
+                <div class="post">
+                    <div class="post-title">{{ post.title }}</div>
+                    <div class="post-info">
+                        <span>📌 r/{{ post.subreddit }}</span>
+                        <span>⬆️ {{ post.score }}</span>
+                    </div>
+                    <button class="comment-btn" onclick="commentPost('{{ post.url }}')">
+                        💬 Yorum Yap
+                    </button>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-posts">
+                    <div class="no-posts-icon">🔍</div>
+                    <h3>Henüz gönderi bulunamadı</h3>
+                    <p>Biraz bekleyip yenileyin</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
     
     <script>
         const commentText = "{{ comment_text }}";
         
         function commentPost(url) {
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            
+            // Buton durumunu güncelle
+            btn.innerHTML = "⏳ Kopyalanıyor...";
+            btn.disabled = true;
+            
             // Metni panoya kopyala
             navigator.clipboard.writeText(commentText).then(function() {
-                alert("✅ Yorum metni kopyalandı! Reddit'e gidiyor...");
-                // Reddit yorum sayfasına git
-                window.open(url, '_blank');
+                btn.innerHTML = "✅ Kopyalandı!";
+                setTimeout(function() {
+                    window.open(url, '_blank');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 500);
             }).catch(function() {
                 // Eski tarayıcılar için alternatif
                 const textarea = document.createElement('textarea');
                 textarea.value = commentText;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
                 document.body.appendChild(textarea);
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                alert("✅ Yorum metni kopyalandı! Reddit'e gidiyor...");
-                window.open(url, '_blank');
+                
+                btn.innerHTML = "✅ Kopyalandı!";
+                setTimeout(function() {
+                    window.open(url, '_blank');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 500);
             });
         }
         
