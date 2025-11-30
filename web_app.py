@@ -155,7 +155,6 @@ HTML_TEMPLATE = """
             border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
-            width: 100%;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             box-shadow: 0 4px 6px rgba(238, 90, 111, 0.3);
@@ -163,6 +162,48 @@ HTML_TEMPLATE = """
         
         .comment-btn:active {
             transform: scale(0.98);
+        }
+        
+        .post-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .post-actions button {
+            flex: 1;
+        }
+        
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 6px rgba(255, 71, 87, 0.3);
+        }
+        
+        .remove-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .searching {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .searching-text {
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 600;
         }
         
         .no-posts {
@@ -196,6 +237,49 @@ HTML_TEMPLATE = """
             font-size: 18px;
         }
         
+        .searching {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .searching-text {
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        
+        .remove-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .post-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .post-actions button {
+            flex: 1;
+        }
+        
         @media (max-width: 480px) {
             body {
                 padding: 15px;
@@ -225,22 +309,33 @@ HTML_TEMPLATE = """
         </div>
         {% endif %}
         
-        <button class="refresh-btn" onclick="location.reload()">
+        <button class="refresh-btn" onclick="refreshPosts()">
             🔄 Yenile
         </button>
+        
+        <div id="searching-status" style="display: none;">
+            <div class="searching">
+                <div class="searching-text">🔍 Gönderiler aranıyor...</div>
+            </div>
+        </div>
         
         <div id="posts">
             {% if posts %}
                 {% for post in posts %}
-                <div class="post">
+                <div class="post" data-post-id="{{ post.id }}">
                     <div class="post-title">{{ post.title }}</div>
                     <div class="post-info">
                         <span>📌 r/{{ post.subreddit }}</span>
                         <span>⬆️ {{ post.score }}</span>
                     </div>
-                    <button class="comment-btn" data-comment-id="{{ post.comment_id }}" onclick="commentPost('{{ post.url }}', '{{ post.id }}', '{{ post.comment_id }}')">
-                        💬 Yorum Yap
-                    </button>
+                    <div class="post-actions">
+                        <button class="comment-btn" data-comment-id="{{ post.comment_id }}" onclick="commentPost('{{ post.url }}', '{{ post.id }}', '{{ post.comment_id }}')">
+                            💬 Yorum Yap
+                        </button>
+                        <button class="remove-btn" onclick="removePost('{{ post.id }}')">
+                            ❌ Kaldır
+                        </button>
+                    </div>
                 </div>
                 {% endfor %}
             {% else %}
@@ -255,6 +350,52 @@ HTML_TEMPLATE = """
     
     <script>
         const commentTexts = {{ comment_texts_map|tojson }};
+        
+        function refreshPosts() {
+            const statusDiv = document.getElementById('searching-status');
+            const postsDiv = document.getElementById('posts');
+            
+            // Arama durumunu göster
+            statusDiv.style.display = 'block';
+            postsDiv.innerHTML = '';
+            
+            // Sunucuya yenileme isteği gönder
+            fetch('/api/refresh', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            }).then(function() {
+                // Sayfayı yenile
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+            });
+        }
+        
+        function removePost(postId) {
+            const postElement = document.querySelector(`[data-post-id="${postId}"]`);
+            
+            if (postElement) {
+                // Sunucuya kaldırma isteği gönder
+                fetch('/api/remove', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({post_id: postId})
+                });
+                
+                // Gönderiyi animasyonlu şekilde kaldır
+                postElement.style.transition = 'opacity 0.3s, transform 0.3s';
+                postElement.style.opacity = '0';
+                postElement.style.transform = 'translateX(-20px)';
+                
+                setTimeout(function() {
+                    postElement.remove();
+                    // Eğer gönderi kalmadıysa sayfayı yenile
+                    if (document.querySelectorAll('.post').length === 0) {
+                        location.reload();
+                    }
+                }, 300);
+            }
+        }
         
         function commentPost(url, postId, commentId) {
             const btn = event.target;
@@ -402,6 +543,55 @@ def mark_commented():
         if post_id:
             posts_manager.add_commented(post_id)
             return jsonify({'status': 'success', 'message': 'Gönderi işaretlendi'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Post ID gerekli'}), 400
+            
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/refresh', methods=['POST'])
+def refresh_posts():
+    """Gönderileri manuel olarak yenile."""
+    global posts_cache
+    
+    try:
+        # Gönderileri hemen güncelle
+        all_posts = []
+        for subreddit_name in Config.PET_SUBREDDITS:
+            posts = bot.get_pet_posts(subreddit_name, limit=25)
+            all_posts.extend(posts)
+            time.sleep(0.5)  # Daha hızlı tarama
+        
+        # Score'a göre sırala
+        all_posts.sort(key=lambda x: x['score'], reverse=True)
+        
+        # Yorum yapılan gönderileri filtrele
+        filtered_posts = posts_manager.filter_commented(all_posts)
+        posts_cache = filtered_posts[:20]
+        
+        return jsonify({'status': 'success', 'count': len(posts_cache)})
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/remove', methods=['POST'])
+def remove_post():
+    """Gönderiyi listeden kaldır."""
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        
+        if post_id:
+            # Yorum yapılanlar listesine ekle (böylece bir daha gösterilmez)
+            posts_manager.add_commented(post_id)
+            
+            # Cache'den de kaldır
+            global posts_cache
+            posts_cache = [p for p in posts_cache if p.get('id') != post_id]
+            
+            return jsonify({'status': 'success', 'message': 'Gönderi kaldırıldı'})
         else:
             return jsonify({'status': 'error', 'message': 'Post ID gerekli'}), 400
             
