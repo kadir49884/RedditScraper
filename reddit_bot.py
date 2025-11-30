@@ -1,6 +1,7 @@
 """Reddit evcil hayvan botu - API olmadan gönderileri bulur ve gösterir."""
 import requests
 import time
+from datetime import datetime, timedelta
 from config import Config
 
 
@@ -11,28 +12,18 @@ class RedditPetBot:
         """Bot'u başlat."""
         self.headers = {'User-Agent': Config.USER_AGENT}
         self.seen_posts = set()
-        self.turkish_chars = set('ğüşıöçĞÜŞİÖÇ')
     
-    def is_turkish(self, text):
-        """Metnin Türkçe olup olmadığını kontrol et."""
-        if not text:
-            return False
-        
-        text_lower = text.lower()
-        
-        # Türkçe karakter kontrolü
-        has_turkish_chars = any(char in self.turkish_chars for char in text)
-        
-        # Yaygın Türkçe kelimeler kontrolü
-        turkish_words = ['kedi', 'köpek', 'küçük', 'tatlı', 'sevimli', 'hayvan', 
-                        'pati', 'kuyruk', 'göz', 'sevgi', 'oyun', 'mama', 'su']
-        has_turkish_words = any(word in text_lower for word in turkish_words)
-        
-        return has_turkish_chars or has_turkish_words
+    def is_within_24_hours(self, created_utc):
+        """Gönderi son 24 saat içinde mi kontrol et."""
+        post_time = datetime.fromtimestamp(created_utc)
+        now = datetime.now()
+        time_diff = now - post_time
+        return time_diff <= timedelta(hours=24)
     
-    def get_pet_posts(self, subreddit_name, limit=10):
-        """Bir subreddit'ten gönderileri getir."""
-        url = f"https://www.reddit.com/r/{subreddit_name}/hot.json?limit={limit}"
+    def get_pet_posts(self, subreddit_name, limit=25):
+        """Bir subreddit'ten son 24 saatteki en popüler gönderileri getir."""
+        # Son 24 saatteki en popüler gönderiler için top endpoint kullan
+        url = f"https://www.reddit.com/r/{subreddit_name}/top.json?t=day&limit={limit}"
         
         try:
             response = requests.get(url, headers=self.headers, timeout=10)
@@ -43,19 +34,24 @@ class RedditPetBot:
             for post_data in data.get('data', {}).get('children', []):
                 post = post_data.get('data', {})
                 post_id = post.get('id')
-                title = post.get('title', '')
+                created_utc = post.get('created_utc', 0)
+                score = post.get('score', 0)
                 
                 if post_id and post_id not in self.seen_posts:
-                    # Sadece Türkçe gönderileri ekle
-                    if self.is_turkish(title):
+                    # Son 24 saat içindeki gönderileri kontrol et
+                    if self.is_within_24_hours(created_utc):
                         posts.append({
                             'id': post_id,
-                            'title': title,
+                            'title': post.get('title', ''),
                             'url': f"https://reddit.com{post.get('permalink', '')}",
-                            'score': post.get('score', 0),
-                            'subreddit': subreddit_name
+                            'score': score,
+                            'subreddit': subreddit_name,
+                            'created_utc': created_utc
                         })
                         self.seen_posts.add(post_id)
+            
+            # Score'a göre sırala (en yüksekten en düşüğe)
+            posts.sort(key=lambda x: x['score'], reverse=True)
             
             return posts
             
@@ -73,22 +69,25 @@ class RedditPetBot:
     def run(self, delay_seconds=300):
         """Bot'u çalıştır."""
         print("🤖 Reddit Pet Bot başlatılıyor...")
-        print("🇹🇷 Sadece Türkçe gönderiler aranıyor...\n")
+        print("🔥 Son 24 saatteki en popüler evcil hayvan gönderileri aranıyor...\n")
         
         while True:
             try:
                 all_posts = []
                 
                 for subreddit_name in Config.PET_SUBREDDITS:
-                    posts = self.get_pet_posts(subreddit_name, limit=20)
+                    posts = self.get_pet_posts(subreddit_name, limit=25)
                     all_posts.extend(posts)
                     time.sleep(1)
                 
+                # Tüm gönderileri score'a göre sırala
+                all_posts.sort(key=lambda x: x['score'], reverse=True)
+                
                 if all_posts:
-                    print(f"\n🐾 {len(all_posts)} Türkçe evcil hayvan gönderisi bulundu:\n")
+                    print(f"\n🐾 {len(all_posts)} popüler evcil hayvan gönderisi bulundu:\n")
                     self.display_posts(all_posts[:10])
                 else:
-                    print("⚠️ Türkçe gönderi bulunamadı.")
+                    print("⚠️ Son 24 saatte gönderi bulunamadı.")
                 
                 print(f"\n⏳ {delay_seconds} saniye bekleniyor...\n")
                 time.sleep(delay_seconds)

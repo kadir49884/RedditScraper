@@ -3,6 +3,7 @@ from flask import Flask, render_template_string, jsonify, request
 from reddit_bot import RedditPetBot
 from config import Config
 from commented_posts import CommentedPostsManager
+from comment_manager import CommentManager
 import threading
 import time
 import os
@@ -10,6 +11,7 @@ import os
 app = Flask(__name__)
 bot = RedditPetBot()
 posts_manager = CommentedPostsManager()
+comment_manager = CommentManager()
 posts_cache = []
 last_update = 0
 
@@ -213,7 +215,7 @@ HTML_TEMPLATE = """
     <div class="container">
         <div class="header">
             <h1>🐾 Reddit Pet Bot</h1>
-            <p>Türkçe Evcil Hayvan Gönderileri</p>
+            <p>Son 24 Saatteki En Popüler Gönderiler</p>
         </div>
         
         {% if posts %}
@@ -236,7 +238,7 @@ HTML_TEMPLATE = """
                         <span>📌 r/{{ post.subreddit }}</span>
                         <span>⬆️ {{ post.score }}</span>
                     </div>
-                    <button class="comment-btn" onclick="commentPost('{{ post.url }}', '{{ post.id }}')">
+                    <button class="comment-btn" data-comment-id="{{ post.comment_id }}" onclick="commentPost('{{ post.url }}', '{{ post.id }}', '{{ post.comment_id }}')">
                         💬 Yorum Yap
                     </button>
                 </div>
@@ -252,12 +254,13 @@ HTML_TEMPLATE = """
     </div>
     
     <script>
-        const commentText = "{{ comment_text }}";
+        const commentTexts = {{ comment_texts_map|tojson }};
         
-        function commentPost(url, postId) {
+        function commentPost(url, postId, commentId) {
             const btn = event.target;
             const originalText = btn.innerHTML;
             const postElement = btn.closest('.post');
+            const commentText = commentTexts[commentId] || '';
             
             // Buton durumunu güncelle
             btn.innerHTML = "⏳ Kopyalanıyor...";
@@ -341,15 +344,18 @@ def update_posts():
         try:
             all_posts = []
             for subreddit_name in Config.PET_SUBREDDITS:
-                posts = bot.get_pet_posts(subreddit_name, limit=20)
+                posts = bot.get_pet_posts(subreddit_name, limit=25)
                 all_posts.extend(posts)
                 time.sleep(1)
+            
+            # Score'a göre sırala (en yüksekten en düşüğe)
+            all_posts.sort(key=lambda x: x['score'], reverse=True)
             
             # Yorum yapılan gönderileri filtrele
             filtered_posts = posts_manager.filter_commented(all_posts)
             posts_cache = filtered_posts[:20]  # En fazla 20 gönderi
             last_update = time.time()
-            print(f"✅ {len(posts_cache)} gönderi güncellendi (yorum yapılanlar filtrelendi)")
+            print(f"✅ {len(posts_cache)} popüler gönderi güncellendi (son 24 saat, yorum yapılanlar filtrelendi)")
             
         except Exception as e:
             print(f"❌ Güncelleme hatası: {e}")
@@ -363,10 +369,20 @@ def index():
     # Yorum yapılan gönderileri filtrele
     filtered_posts = posts_manager.filter_commented(posts_cache)
     
+    # Her gönderi için rastgele yorum metni seç
+    posts_with_comments = []
+    comment_texts_map = {}
+    for i, post in enumerate(filtered_posts):
+        post_copy = post.copy()
+        comment_text = comment_manager.get_random_comment()
+        post_copy['comment_id'] = f"comment_{i}"
+        comment_texts_map[f"comment_{i}"] = comment_text
+        posts_with_comments.append(post_copy)
+    
     return render_template_string(
         HTML_TEMPLATE, 
-        posts=filtered_posts,
-        comment_text=Config.COMMENT_TEXT
+        posts=posts_with_comments,
+        comment_texts_map=comment_texts_map
     )
 
 
