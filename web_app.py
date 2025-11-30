@@ -4,7 +4,6 @@ from reddit_bot import RedditPetBot
 from config import Config
 from commented_posts import CommentedPostsManager
 from comment_manager import CommentManager
-import threading
 import time
 import os
 
@@ -327,6 +326,7 @@ HTML_TEMPLATE = """
                     <div class="post-info">
                         <span>📌 r/{{ post.subreddit }}</span>
                         <span>⬆️ {{ post.score }}</span>
+                        <span>💬 {{ post.num_comments|default(0) }}</span>
                     </div>
                     <div class="post-actions">
                         <button class="comment-btn" data-comment-id="{{ post.comment_id }}" onclick="commentPost('{{ post.url }}', '{{ post.id }}', '{{ post.comment_id }}')">
@@ -467,42 +467,12 @@ HTML_TEMPLATE = """
             });
         }
         
-        // Her 30 saniyede bir otomatik yenile
-        setInterval(function() {
-            location.reload();
-        }, 30000);
     </script>
 </body>
 </html>
 """
 
 
-def update_posts():
-    """Gönderileri güncelle."""
-    global posts_cache, last_update
-    
-    while True:
-        try:
-            all_posts = []
-            for subreddit_name in Config.PET_SUBREDDITS:
-                posts = bot.get_pet_posts(subreddit_name, limit=100)
-                all_posts.extend(posts)
-                time.sleep(0.5)  # Daha hızlı tarama
-            
-            # Score'a göre sırala (en yüksekten en düşüğe)
-            all_posts.sort(key=lambda x: x['score'], reverse=True)
-            
-            # Yorum yapılan gönderileri filtrele
-            filtered_posts = posts_manager.filter_commented(all_posts)
-            # En az 20 gönderi göster (daha fazla varsa göster)
-            posts_cache = filtered_posts[:50]  # Daha fazla gönderi göster
-            last_update = time.time()
-            print(f"✅ {len(posts_cache)} popüler gönderi güncellendi (son 24 saat, yorum yapılanlar filtrelendi)")
-            
-        except Exception as e:
-            print(f"❌ Güncelleme hatası: {e}")
-        
-        time.sleep(300)  # 5 dakikada bir güncelle
 
 
 @app.route('/')
@@ -570,8 +540,8 @@ def refresh_posts():
             all_posts.extend(posts)
             time.sleep(0.3)  # Daha hızlı tarama
         
-        # Score'a göre sırala
-        all_posts.sort(key=lambda x: x['score'], reverse=True)
+        # Etkileşim skoruna göre sırala (en yüksekten en düşüğe)
+        all_posts.sort(key=lambda x: x.get('engagement_score', x.get('score', 0)), reverse=True)
         
         # Yorum yapılan gönderileri filtrele
         filtered_posts = posts_manager.filter_commented(all_posts)
@@ -608,14 +578,11 @@ def remove_post():
 
 
 if __name__ == '__main__':
-    # Arka planda gönderi güncelleme thread'i başlat
-    update_thread = threading.Thread(target=update_posts, daemon=True)
-    update_thread.start()
-    
     # Railway için port ayarı
     port = int(os.environ.get('PORT', 5000))
     
     print("🤖 Web uygulaması başlatılıyor...")
+    print("📌 Sadece manuel yenileme ile tarama yapılacak")
     print(f"🌐 Port: {port}")
     
     app.run(host='0.0.0.0', port=port, debug=False)

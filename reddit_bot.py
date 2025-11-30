@@ -40,18 +40,27 @@ class RedditPetBot:
                 if post_id and post_id not in self.seen_posts:
                     # Son 24 saat içindeki gönderileri kontrol et
                     if self.is_within_24_hours(created_utc):
+                        num_comments = post.get('num_comments', 0)
+                        upvote_ratio = post.get('upvote_ratio', 0)
+                        
+                        # Etkileşim skoru hesapla (score + comment sayısı + upvote ratio)
+                        engagement_score = score + (num_comments * 2) + (score * upvote_ratio)
+                        
                         posts.append({
                             'id': post_id,
                             'title': post.get('title', ''),
                             'url': f"https://reddit.com{post.get('permalink', '')}",
                             'score': score,
+                            'num_comments': num_comments,
+                            'upvote_ratio': upvote_ratio,
+                            'engagement_score': engagement_score,
                             'subreddit': subreddit_name,
                             'created_utc': created_utc
                         })
                         self.seen_posts.add(post_id)
             
-            # Score'a göre sırala (en yüksekten en düşüğe)
-            posts.sort(key=lambda x: x['score'], reverse=True)
+            # Etkileşim skoruna göre sırala (en yüksekten en düşüğe)
+            posts.sort(key=lambda x: x['engagement_score'], reverse=True)
             
             return posts
             
