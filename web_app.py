@@ -147,7 +147,7 @@ HTML_TEMPLATE = """
         }
         
         .comment-btn {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
             color: white;
             border: none;
             padding: 14px 20px;
@@ -156,7 +156,7 @@ HTML_TEMPLATE = """
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 6px rgba(238, 90, 111, 0.3);
+            box-shadow: 0 4px 6px rgba(74, 144, 226, 0.3);
         }
         
         .comment-btn:active {
@@ -174,7 +174,7 @@ HTML_TEMPLATE = """
         }
         
         .remove-btn {
-            background: #ff4757;
+            background: linear-gradient(135deg, #ff4757 0%, #ee3742 100%);
             color: white;
             border: none;
             padding: 14px 20px;
@@ -279,17 +279,80 @@ HTML_TEMPLATE = """
             flex: 1;
         }
         
-        @media (max-width: 480px) {
+        @media (max-width: 768px) {
             body {
                 padding: 15px;
+            }
+            
+            .container {
+                max-width: 100%;
+            }
+            
+            .header {
+                padding: 20px 15px;
             }
             
             .header h1 {
                 font-size: 24px;
             }
             
+            .header p {
+                font-size: 13px;
+            }
+            
+            .post {
+                padding: 15px;
+            }
+            
             .post-title {
                 font-size: 16px;
+                line-height: 1.3;
+            }
+            
+            .post-info {
+                flex-wrap: wrap;
+                gap: 8px;
+                font-size: 12px;
+            }
+            
+            .post-actions {
+                gap: 8px;
+            }
+            
+            .comment-btn,
+            .remove-btn {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+            
+            .stats {
+                padding: 12px 15px;
+                font-size: 13px;
+            }
+            
+            .refresh-btn {
+                padding: 12px;
+                font-size: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .post-title {
+                font-size: 15px;
+            }
+            
+            .comment-btn,
+            .remove-btn {
+                padding: 10px 14px;
+                font-size: 14px;
             }
         }
     </style>
@@ -540,8 +603,9 @@ def refresh_posts():
             all_posts.extend(posts)
             time.sleep(0.3)  # Daha hızlı tarama
         
-        # Etkileşim skoruna göre sırala (en yüksekten en düşüğe)
-        all_posts.sort(key=lambda x: x.get('engagement_score', x.get('score', 0)), reverse=True)
+        # Önce son 1 saat içindekileri, sonra diğerlerini sırala
+        # Her grup içinde etkileşim skoruna göre sırala
+        all_posts.sort(key=lambda x: (not x.get('is_recent', False), -x.get('engagement_score', x.get('score', 0))))
         
         # Yorum yapılan gönderileri filtrele
         filtered_posts = posts_manager.filter_commented(all_posts)

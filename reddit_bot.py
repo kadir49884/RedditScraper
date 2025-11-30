@@ -20,6 +20,13 @@ class RedditPetBot:
         time_diff = now - post_time
         return time_diff <= timedelta(hours=24)
     
+    def is_within_1_hour(self, created_utc):
+        """Gönderi son 1 saat içinde mi kontrol et."""
+        post_time = datetime.fromtimestamp(created_utc)
+        now = datetime.now()
+        time_diff = now - post_time
+        return time_diff <= timedelta(hours=1)
+    
     def get_pet_posts(self, subreddit_name, limit=100):
         """Bir subreddit'ten son 24 saatteki en popüler gönderileri getir."""
         # Son 24 saatteki en popüler gönderiler için top endpoint kullan
@@ -43,6 +50,9 @@ class RedditPetBot:
                         num_comments = post.get('num_comments', 0)
                         upvote_ratio = post.get('upvote_ratio', 0)
                         
+                        # Son 1 saat içinde mi kontrol et
+                        is_recent = self.is_within_1_hour(created_utc)
+                        
                         # Etkileşim skoru hesapla (score + comment sayısı + upvote ratio)
                         engagement_score = score + (num_comments * 2) + (score * upvote_ratio)
                         
@@ -55,12 +65,14 @@ class RedditPetBot:
                             'upvote_ratio': upvote_ratio,
                             'engagement_score': engagement_score,
                             'subreddit': subreddit_name,
-                            'created_utc': created_utc
+                            'created_utc': created_utc,
+                            'is_recent': is_recent  # Son 1 saat içinde mi
                         })
                         self.seen_posts.add(post_id)
             
-            # Etkileşim skoruna göre sırala (en yüksekten en düşüğe)
-            posts.sort(key=lambda x: x['engagement_score'], reverse=True)
+            # Önce son 1 saat içindekileri, sonra diğerlerini sırala
+            # Her grup içinde etkileşim skoruna göre sırala
+            posts.sort(key=lambda x: (not x['is_recent'], -x['engagement_score']))
             
             return posts
             
