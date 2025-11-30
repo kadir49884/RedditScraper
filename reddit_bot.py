@@ -20,7 +20,7 @@ class RedditPetBot:
         time_diff = now - post_time
         return time_diff <= timedelta(hours=24)
     
-    def get_pet_posts(self, subreddit_name, limit=25):
+    def get_pet_posts(self, subreddit_name, limit=100):
         """Bir subreddit'ten son 24 saatteki en popüler gönderileri getir."""
         # Son 24 saatteki en popüler gönderiler için top endpoint kullan
         url = f"https://www.reddit.com/r/{subreddit_name}/top.json?t=day&limit={limit}"

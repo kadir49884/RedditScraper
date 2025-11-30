@@ -485,16 +485,17 @@ def update_posts():
         try:
             all_posts = []
             for subreddit_name in Config.PET_SUBREDDITS:
-                posts = bot.get_pet_posts(subreddit_name, limit=25)
+                posts = bot.get_pet_posts(subreddit_name, limit=100)
                 all_posts.extend(posts)
-                time.sleep(1)
+                time.sleep(0.5)  # Daha hızlı tarama
             
             # Score'a göre sırala (en yüksekten en düşüğe)
             all_posts.sort(key=lambda x: x['score'], reverse=True)
             
             # Yorum yapılan gönderileri filtrele
             filtered_posts = posts_manager.filter_commented(all_posts)
-            posts_cache = filtered_posts[:20]  # En fazla 20 gönderi
+            # En az 20 gönderi göster (daha fazla varsa göster)
+            posts_cache = filtered_posts[:50]  # Daha fazla gönderi göster
             last_update = time.time()
             print(f"✅ {len(posts_cache)} popüler gönderi güncellendi (son 24 saat, yorum yapılanlar filtrelendi)")
             
@@ -510,10 +511,13 @@ def index():
     # Yorum yapılan gönderileri filtrele
     filtered_posts = posts_manager.filter_commented(posts_cache)
     
+    # En az 5 gönderi göster (eğer yoksa tümünü göster)
+    display_posts = filtered_posts[:50] if len(filtered_posts) >= 5 else filtered_posts
+    
     # Her gönderi için rastgele yorum metni seç
     posts_with_comments = []
     comment_texts_map = {}
-    for i, post in enumerate(filtered_posts):
+    for i, post in enumerate(display_posts):
         post_copy = post.copy()
         comment_text = comment_manager.get_random_comment()
         post_copy['comment_id'] = f"comment_{i}"
@@ -556,19 +560,23 @@ def refresh_posts():
     global posts_cache
     
     try:
+        # seen_posts'u temizle (yeni gönderiler bulabilmek için)
+        bot.seen_posts.clear()
+        
         # Gönderileri hemen güncelle
         all_posts = []
         for subreddit_name in Config.PET_SUBREDDITS:
-            posts = bot.get_pet_posts(subreddit_name, limit=25)
+            posts = bot.get_pet_posts(subreddit_name, limit=100)
             all_posts.extend(posts)
-            time.sleep(0.5)  # Daha hızlı tarama
+            time.sleep(0.3)  # Daha hızlı tarama
         
         # Score'a göre sırala
         all_posts.sort(key=lambda x: x['score'], reverse=True)
         
         # Yorum yapılan gönderileri filtrele
         filtered_posts = posts_manager.filter_commented(all_posts)
-        posts_cache = filtered_posts[:20]
+        # En az 5 gönderi garantisi için daha fazla gönderi göster
+        posts_cache = filtered_posts[:50]  # Daha fazla gönderi göster
         
         return jsonify({'status': 'success', 'count': len(posts_cache)})
         
