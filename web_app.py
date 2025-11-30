@@ -1,13 +1,15 @@
 """Telefon için basit web arayüzü - Gönderilere tek tıkla yorum yap."""
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 from reddit_bot import RedditPetBot
 from config import Config
+from commented_posts import CommentedPostsManager
 import threading
 import time
 import os
 
 app = Flask(__name__)
 bot = RedditPetBot()
+posts_manager = CommentedPostsManager()
 posts_cache = []
 last_update = 0
 
@@ -234,7 +236,7 @@ HTML_TEMPLATE = """
                         <span>📌 r/{{ post.subreddit }}</span>
                         <span>⬆️ {{ post.score }}</span>
                     </div>
-                    <button class="comment-btn" onclick="commentPost('{{ post.url }}')">
+                    <button class="comment-btn" onclick="commentPost('{{ post.url }}', '{{ post.id }}')">
                         💬 Yorum Yap
                     </button>
                 </div>
@@ -252,9 +254,10 @@ HTML_TEMPLATE = """
     <script>
         const commentText = "{{ comment_text }}";
         
-        function commentPost(url) {
+        function commentPost(url, postId) {
             const btn = event.target;
             const originalText = btn.innerHTML;
+            const postElement = btn.closest('.post');
             
             // Buton durumunu güncelle
             btn.innerHTML = "⏳ Kopyalanıyor...";
@@ -263,10 +266,26 @@ HTML_TEMPLATE = """
             // Metni panoya kopyala
             navigator.clipboard.writeText(commentText).then(function() {
                 btn.innerHTML = "✅ Kopyalandı!";
+                
+                // Sunucuya yorum yapıldığını bildir
+                fetch('/api/commented', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({post_id: postId})
+                });
+                
                 setTimeout(function() {
                     window.open(url, '_blank');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
+                    // Gönderiyi listeden kaldır
+                    postElement.style.transition = 'opacity 0.3s';
+                    postElement.style.opacity = '0';
+                    setTimeout(function() {
+                        postElement.remove();
+                        // Eğer gönderi kalmadıysa sayfayı yenile
+                        if (document.querySelectorAll('.post').length === 0) {
+                            location.reload();
+                        }
+                    }, 300);
                 }, 500);
             }).catch(function() {
                 // Eski tarayıcılar için alternatif
@@ -280,10 +299,26 @@ HTML_TEMPLATE = """
                 document.body.removeChild(textarea);
                 
                 btn.innerHTML = "✅ Kopyalandı!";
+                
+                // Sunucuya yorum yapıldığını bildir
+                fetch('/api/commented', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({post_id: postId})
+                });
+                
                 setTimeout(function() {
                     window.open(url, '_blank');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
+                    // Gönderiyi listeden kaldır
+                    postElement.style.transition = 'opacity 0.3s';
+                    postElement.style.opacity = '0';
+                    setTimeout(function() {
+                        postElement.remove();
+                        // Eğer gönderi kalmadıysa sayfayı yenile
+                        if (document.querySelectorAll('.post').length === 0) {
+                            location.reload();
+                        }
+                    }, 300);
                 }, 500);
             });
         }
@@ -310,9 +345,11 @@ def update_posts():
                 all_posts.extend(posts)
                 time.sleep(1)
             
-            posts_cache = all_posts[:20]  # En fazla 20 gönderi
+            # Yorum yapılan gönderileri filtrele
+            filtered_posts = posts_manager.filter_commented(all_posts)
+            posts_cache = filtered_posts[:20]  # En fazla 20 gönderi
             last_update = time.time()
-            print(f"✅ {len(posts_cache)} gönderi güncellendi")
+            print(f"✅ {len(posts_cache)} gönderi güncellendi (yorum yapılanlar filtrelendi)")
             
         except Exception as e:
             print(f"❌ Güncelleme hatası: {e}")
@@ -323,9 +360,12 @@ def update_posts():
 @app.route('/')
 def index():
     """Ana sayfa."""
+    # Yorum yapılan gönderileri filtrele
+    filtered_posts = posts_manager.filter_commented(posts_cache)
+    
     return render_template_string(
         HTML_TEMPLATE, 
-        posts=posts_cache,
+        posts=filtered_posts,
         comment_text=Config.COMMENT_TEXT
     )
 
@@ -334,6 +374,23 @@ def index():
 def api_posts():
     """API endpoint - JSON formatında gönderiler."""
     return jsonify(posts_cache)
+
+
+@app.route('/api/commented', methods=['POST'])
+def mark_commented():
+    """Yorum yapılan gönderiyi işaretle."""
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        
+        if post_id:
+            posts_manager.add_commented(post_id)
+            return jsonify({'status': 'success', 'message': 'Gönderi işaretlendi'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Post ID gerekli'}), 400
+            
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 if __name__ == '__main__':

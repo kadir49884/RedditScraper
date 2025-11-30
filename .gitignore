@@ -25,3 +25,6 @@ Thumbs.db
 # Railway
 .railway/
 
+# Yorum yapılan gönderiler (kullanıcıya özel)
+commented_posts.json
+
